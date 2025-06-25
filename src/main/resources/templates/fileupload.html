@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{label.fileupload.title}">File Upload</title>
+    <link href="../static/css/bootstrap.min.css" th:href="@{/css/bootstrap.min.css}" rel="stylesheet" media="screen"/>
+    <link href="../static/css/style.css" th:href="@{/css/style.css}" rel="stylesheet" media="screen"/>
+</head>
+<body>
+    <div class="container">
+        <!--/*/ <th:block th:include="fragments/header :: header"></th:block> /*/-->
+        
+        <div class="row">
+            <div class="col-md-8 col-md-offset-2">
+                <h2>File Upload</h2>
+                
+                <!-- Success/Error Messages -->
+                <div th:if="${success}" class="alert alert-success" role="alert">
+                    <span th:text="${success}"></span>
+                </div>
+                <div th:if="${error}" class="alert alert-danger" role="alert">
+                    <span th:text="${error}"></span>
+                </div>
+                
+                <!-- Single File Upload -->
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Upload Single File</h3>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="/files/upload" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label for="file">Choose file:</label>
+                                <input type="file" class="form-control" id="file" name="file" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload File</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Multiple File Upload -->
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">Upload Multiple Files</h3>
+                    </div>
+                    <div class="panel-body">
+                        <form method="POST" action="/files/upload/multiple" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label for="files">Choose files:</label>
+                                <input type="file" class="form-control" id="files" name="files" multiple required>
+                            </div>
+                            <button type="submit" class="btn btn-success">Upload Files</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- File Management -->
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">File Management</h3>
+                    </div>
+                    <div class="panel-body">
+                        <button id="listFiles" class="btn btn-info">List Uploaded Files</button>
+                        <div id="fileList" class="mt-3" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+                
+                <!-- AJAX Upload Example -->
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">AJAX File Upload</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label for="ajaxFile">Choose file for AJAX upload:</label>
+                            <input type="file" class="form-control" id="ajaxFile">
+                        </div>
+                        <button id="ajaxUpload" class="btn btn-warning">Upload via AJAX</button>
+                        <div id="ajaxResult" class="mt-3" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+                
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col-md-6">
+                        <a href="/products" class="btn btn-default">Back to Products</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // List files functionality
+        document.getElementById('listFiles').addEventListener('click', function() {
+            fetch('/files/list')
+                .then(response => response.json())
+                .then(data => {
+                    const fileListDiv = document.getElementById('fileList');
+                    if (data.success) {
+                        if (data.files.length === 0) {
+                            fileListDiv.innerHTML = '<p class="text-muted">No files uploaded yet.</p>';
+                        } else {
+                            let html = '<h4>Uploaded Files (' + data.count + '):</h4><ul class="list-group">';
+                            data.files.forEach(file => {
+                                html += '<li class="list-group-item d-flex justify-content-between align-items-center">';
+                                html += '<div><strong>' + file + '</strong><br>';
+                                html += '<small>';
+                                html += '<a href="/files/download/' + file + '" class="btn btn-sm btn-primary" style="margin-right: 5px;">Download</a>';
+                                html += '<a href="/files/view/' + file + '" target="_blank" class="btn btn-sm btn-info" style="margin-right: 5px;">View</a>';
+                                html += '<button class="btn btn-sm btn-warning" onclick="getFileInfo(\'' + file + '\')" style="margin-right: 5px;">Info</button>';
+                                html += '</small></div>';
+                                html += '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + file + '\')">Delete</button>';
+                                html += '</li>';
+                            });
+                            html += '</ul>';
+                            fileListDiv.innerHTML = html;
+                        }
+                    } else {
+                        fileListDiv.innerHTML = '<div class="alert alert-danger">Error: ' + data.message + '</div>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('fileList').innerHTML = '<div class="alert alert-danger">Error loading files: ' + error + '</div>';
+                });
+        });
+
+        // Delete file functionality
+        function deleteFile(filename) {
+            if (confirm('Are you sure you want to delete this file?')) {
+                fetch('/files/delete/' + filename, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById('listFiles').click(); // Refresh the list
+                            alert('File deleted successfully');
+                        } else {
+                            alert('Error deleting file: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error deleting file: ' + error);
+                    });
+            }
+        }
+
+        // Get file info functionality
+        function getFileInfo(filename) {
+            fetch('/files/info/' + filename)
+                .then(response => response.json())
+                .then(data => {
+                    let info = 'File Information:\n\n';
+                    info += 'Name: ' + data.name + '\n';
+                    info += 'Size: ' + (data.size / 1024).toFixed(2) + ' KB\n';
+                    info += 'Content Type: ' + data.contentType + '\n';
+                    info += 'Path: ' + data.path + '\n';
+                    alert(info);
+                })
+                .catch(error => {
+                    alert('Error getting file info: ' + error);
+                });
+        }
+
+        // AJAX upload functionality
+        document.getElementById('ajaxUpload').addEventListener('click', function() {
+            const fileInput = document.getElementById('ajaxFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/files/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('ajaxResult');
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="alert alert-success">' +
+                        '<strong>Success!</strong> ' + data.message + '<br>' +
+                        '<strong>Original Name:</strong> ' + data.originalName + '<br>' +
+                        '<strong>Stored as:</strong> ' + data.filename + '<br>' +
+                        '<strong>File Size:</strong> ' + (data.fileSize / 1024).toFixed(2) + ' KB' +
+                        '</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="alert alert-danger"><strong>Error!</strong> ' + data.message + '</div>';
+                }
+            })
+            .catch(error => {
+                document.getElementById('ajaxResult').innerHTML = '<div class="alert alert-danger"><strong>Error!</strong> ' + error + '</div>';
+            });
+        });
+    </script>
+</body>
+</html>
